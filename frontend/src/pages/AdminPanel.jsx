@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { TeamFlag, TierBadge } from "@/components/TeamCard";
+import SettledMatchPosterDialog from "@/components/SettledMatchPosterDialog";
 import { fmtCoins, fmtSigned, avatarUrl, STAGE_LABEL } from "@/lib/format";
 import { Shield, Trash2, Plus, RefreshCw, Gavel, Award, AlertOctagon, FileText } from "lucide-react";
 
@@ -105,7 +106,7 @@ function FetchPanel({ onDone }) {
     try {
       const r = await api.post("/admin/fetch");
       setResult(r.data);
-      toast.success(`${r.data.events_count} بازی از API دریافت شد — ${r.data.created} جدید، ${r.data.updated} به‌روزرسانی، ${r.data.finished_pending} نیازمند تسویه`);
+      toast.success(`${r.data.events_count} بازی از API دریافت شد — ${r.data.created} جدید، ${r.data.updated} به‌روزرسانی، ${r.data.finished_pending} نیازمند تسویه، براکت حذفی همگام شد`);
       onDone?.();
     } catch (e) { toast.error(fmtErr(e)); }
     finally { setBusy(false); }
@@ -305,6 +306,7 @@ function SettledRow({ m, teams, onDone }) {
         <div className="flex items-center gap-2"><TeamFlag team={a} size={24} /><span>{a.name_fa}</span></div>
       </div>
       <Button size="sm" variant="outline" data-testid={`rollback-${m.id}`} onClick={rollback}><RefreshCw className="w-3 h-3" /> بازگشت</Button>
+      <SettledMatchPosterDialog matchId={m.id} />
     </div>
   );
 }

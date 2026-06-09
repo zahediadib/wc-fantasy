@@ -1,12 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
-import ReactApexChart from "react-apexcharts";
+import {
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { fmtCoins, fmtSigned, avatarUrl } from "@/lib/format";
 import { Coins, TrendingUp, Activity, Trophy } from "lucide-react";
 import PortfolioModal from "@/components/PortfolioModal";
 
-const PALETTE = ["#FF00FF", "#00FFFF", "#00FF41", "#9D4CDD", "#FFD700", "#FF6B6B", "#7DDFFF", "#FFA500", "#A29BFE", "#FF8FAB"];
+const PALETTE = ["#FFD700", "#00FFFF", "#00FF41", "#9D4CDD", "#FF6B6B", "#7DDFFF", "#FFA500", "#A29BFE", "#FF8FAB", "#FF00FF"];
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -31,47 +40,51 @@ export default function Dashboard() {
     });
   }, []);
 
-  // Build series for ApexCharts time-series chart: each player is a series of [ts_ms, balance]
-  const series = useMemo(() => {
-    return history.map((u) => {
-      let last = 100;
-      const data = u.events.map((e) => {
-        last = e.balance;
-        return [new Date(e.ts).getTime(), Number(last.toFixed(2))];
-      });
-      // Always include now to extend lines to today
-      if (data.length > 0) data.push([Date.now(), data[data.length - 1][1]]);
-      return { name: u.name, data };
-    }).filter((s) => s.data.length > 1);
-  }, [history]);
+  const balanceChart = useMemo(() => {
+    const withEvents = history.filter((u) => Array.isArray(u.events) && u.events.length > 0);
+    if (!withEvents.length) return { rows: [], lines: [] };
 
-  const chartOptions = useMemo(() => ({
-    chart: {
-      id: "balance-history",
-      type: "area", background: "transparent", foreColor: "#9CA3AF",
-      toolbar: { show: false }, zoom: { enabled: true, type: "x" },
-      animations: { enabled: false },
-      dropShadow: { enabled: true, top: 2, blur: 6, opacity: 0.25 },
-      fontFamily: "Vazirmatn, sans-serif",
-      redrawOnParentResize: false,
-      redrawOnWindowResize: false,
-    },
-    colors: PALETTE,
-    stroke: { width: 2.5, curve: "smooth" },
-    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.02, stops: [0, 90, 100] } },
-    grid: { borderColor: "rgba(255,255,255,0.06)", strokeDashArray: 4 },
-    xaxis: { type: "datetime", labels: { style: { colors: "#6B7280", fontSize: "11px" } } },
-    yaxis: { labels: { style: { colors: "#6B7280", fontSize: "11px" }, formatter: (v) => (v == null || Number.isNaN(v)) ? "" : Number(v).toFixed(0) } },
-    legend: { position: "top", horizontalAlign: "right", labels: { colors: "#D1D5DB" }, markers: { width: 10, height: 10 } },
-    tooltip: {
-      theme: "dark", x: { format: "yyyy-MM-dd HH:mm" },
-      style: { fontSize: "12px", fontFamily: "Vazirmatn" },
-      shared: true,
-      y: { formatter: (v) => (v == null || Number.isNaN(v)) ? "—" : `${Number(v).toFixed(2)} سکه` },
-    },
-    markers: { size: 0, strokeWidth: 0, hover: { size: 6 } },
-    dataLabels: { enabled: false },
-  }), []);
+    const eventsByUser = withEvents.map((u) => ({
+      key: u.username,
+      name: u.name,
+      color: PALETTE[Math.abs(u.username.split("").reduce((s, c) => s + c.charCodeAt(0), 0)) % PALETTE.length],
+      events: u.events
+        .map((e) => ({ ts: new Date(e.ts).getTime(), balance: Number(e.balance) }))
+        .filter((e) => Number.isFinite(e.ts) && Number.isFinite(e.balance))
+        .sort((a, b) => a.ts - b.ts),
+    })).filter((u) => u.events.length > 0);
+
+    if (!eventsByUser.length) return { rows: [], lines: [] };
+
+    const now = Date.now();
+    const timeSet = new Set([now]);
+    for (const u of eventsByUser) {
+      for (const e of u.events) timeSet.add(e.ts);
+    }
+    const timeline = Array.from(timeSet).sort((a, b) => a - b);
+
+    const pointers = Object.fromEntries(eventsByUser.map((u) => [u.key, 0]));
+    const running = Object.fromEntries(eventsByUser.map((u) => [u.key, 100]));
+
+    const rows = timeline.map((ts) => {
+      const row = { ts };
+      for (const u of eventsByUser) {
+        let idx = pointers[u.key];
+        while (idx < u.events.length && u.events[idx].ts <= ts) {
+          running[u.key] = u.events[idx].balance;
+          idx += 1;
+        }
+        pointers[u.key] = idx;
+        row[u.key] = Number(running[u.key].toFixed(2));
+      }
+      return row;
+    });
+
+    return {
+      rows,
+      lines: eventsByUser.map((u) => ({ key: u.key, name: u.name, color: u.color })),
+    };
+  }, [history]);
 
   return (
     <div className="space-y-6" data-testid="dashboard-page">
@@ -97,10 +110,73 @@ export default function Dashboard() {
           <h2 className="text-lg font-bold flex items-center gap-2"><TrendingUp className="w-5 h-5 text-cyan-300" /> تاریخچه موجودی بازیکنان</h2>
           <span className="text-[10px] uppercase tracking-widest text-gray-400 mono">live</span>
         </div>
-        {series.length === 0 ? (
+        {balanceChart.rows.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-gray-500 text-sm">هنوز تراکنشی ثبت نشده — پس از اولین تسویه، نمودار فعال می‌شود</div>
         ) : (
-          <ReactApexChart key={series.length} options={chartOptions} series={series} type="area" height={320} />
+          <div className="h-80" data-testid="players-balance-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={balanceChart.rows} margin={{ top: 10, right: 16, bottom: 4, left: 8 }}>
+                <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+                <XAxis
+                  dataKey="ts"
+                  type="number"
+                  scale="time"
+                  domain={["dataMin", "dataMax"]}
+                  tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                  tickFormatter={(v) => new Date(v).toLocaleString("fa-IR", { month: "2-digit", day: "2-digit" })}
+                />
+                <YAxis
+                  tick={{ fill: "#9CA3AF", fontSize: 11 }}
+                  tickFormatter={(v) => fmtCoins(v)}
+                  width={52}
+                />
+                <Tooltip
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || !payload.length) return null;
+                    const sorted = [...payload].sort((a, b) => Number(b.value) - Number(a.value));
+                    return (
+                      <div className="rounded-xl border border-white/15 bg-[#0D1322]/95 px-3 py-2 shadow-2xl backdrop-blur">
+                        <div className="text-[11px] text-cyan-200 mb-1">
+                          {new Date(label).toLocaleString("fa-IR", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </div>
+                        <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                          {sorted.map((item) => (
+                            <div key={item.dataKey} className="flex items-center justify-between gap-4 text-[11px]">
+                              <span className="flex items-center gap-1.5 text-gray-100">
+                                <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: item.stroke }} />
+                                {item.name}
+                              </span>
+                              <span className="mono font-bold text-white">{fmtCoins(item.value)} سکه</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                <Legend verticalAlign="top" align="right" wrapperStyle={{ color: "#D1D5DB", fontSize: 12 }} />
+                {balanceChart.lines.map((line) => (
+                  <Line
+                    key={line.key}
+                    type="monotone"
+                    dataKey={line.key}
+                    name={line.name}
+                    stroke={line.color}
+                    strokeWidth={2.4}
+                    dot={false}
+                    activeDot={{ r: 4, strokeWidth: 2 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
