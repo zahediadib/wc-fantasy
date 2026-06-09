@@ -11,6 +11,7 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
 
 import os
+import re
 import uuid
 import logging
 from datetime import datetime, timezone
@@ -56,6 +57,25 @@ log = logging.getLogger("wc26")
 DEFAULT_START_BALANCE = 100
 TRANSFER_PERCENT_LIMIT = 0.40  # 40%
 AUCTION_MAX_BID = 65
+STAGE_LABELS_FA = {
+    "group": "مرحله گروهی",
+    "r32": "یک‌شانزدهم نهایی",
+    "r16": "یک‌هشتم نهایی",
+    "qf": "یک‌چهارم نهایی",
+    "sf": "نیمه‌نهایی",
+    "third": "رده‌بندی",
+    "final": "فینال",
+}
+TIER_LABELS_FA = {
+    1: "سطح A",
+    2: "سطح B",
+    3: "سطح C",
+    4: "سطح D",
+    5: "سطح E",
+    6: "سطح F",
+}
+KNOCKOUT_STAGE_LIMITS = {"r32": 16, "r16": 8, "qf": 4, "sf": 2, "third": 1, "final": 1}
+UNASSIGNED_BRACKET_SLOT_SORT_KEY = 10_000
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -666,6 +686,105 @@ async def preview_settle(match_id: str, admin: dict = Depends(require_admin)):
     }
 
 
+def _poster_fantasy_stats(stage: str, team_tier: int, my_goals: int, other_goals: int, yellow: int, red: int) -> List[dict]:
+    rows: List[dict] = []
+    mult = tier_multiplier(team_tier)
+    if my_goals > other_goals:
+        key = "group_win" if stage == "group" else _stage_win_key(stage)
+        if key:
+            base = MATCH_BASE_COINS[key]
+            rows.append({"title": "برد بازی", "baseValue": base, "multiplier": mult, "finalScore": base * mult})
+    elif stage == "group" and my_goals == other_goals:
+        base = MATCH_BASE_COINS["group_draw"]
+        rows.append({"title": "تساوی بازی", "baseValue": base, "multiplier": mult, "finalScore": base * mult})
+
+    if my_goals:
+        rows.append({"title": "گل زده", "baseValue": my_goals, "multiplier": 1, "finalScore": my_goals})
+    if other_goals:
+        rows.append({"title": "گل خورده", "baseValue": other_goals, "multiplier": PERFORMANCE["goal_conceded"], "finalScore": PERFORMANCE["goal_conceded"] * other_goals})
+    if yellow:
+        rows.append({"title": "کارت زرد", "baseValue": yellow, "multiplier": PERFORMANCE["yellow_card"], "finalScore": PERFORMANCE["yellow_card"] * yellow})
+    if red:
+        rows.append({"title": "کارت قرمز", "baseValue": red, "multiplier": PERFORMANCE["red_card"], "finalScore": PERFORMANCE["red_card"] * red})
+    return rows
+
+
+async def _team_roi_until(team_id: str, settled_at: str, users_map: Dict[str, str]) -> List[dict]:
+    rows = await db.ledger.aggregate([
+        {"$match": {"meta.team_id": team_id, "ts": {"$lte": settled_at}}},
+        {"$group": {"_id": "$user_id", "roi": {"$sum": "$amount"}}},
+        {"$sort": {"roi": -1}},
+    ]).to_list(100)
+    out = []
+    for row in rows:
+        uid = row["_id"]
+        out.append({
+            "userId": uid,
+            "userName": users_map.get(uid, "کاربر"),
+            "roi": float(row["roi"]),
+        })
+    return out
+
+
+@api.get("/admin/matches/{match_id}/poster")
+async def settled_match_poster_data(match_id: str, admin: dict = Depends(require_admin)):
+    m = await db.matches.find_one({"id": match_id})
+    if not m:
+        raise HTTPException(status_code=404, detail="بازی یافت نشد")
+    if m.get("status") != "settled" or not m.get("result"):
+        raise HTTPException(status_code=400, detail="این بازی هنوز تسویه نشده است")
+
+    home = await db.teams.find_one({"id": m["home_team_id"]})
+    away = await db.teams.find_one({"id": m["away_team_id"]})
+    if not home or not away:
+        raise HTTPException(status_code=422, detail="اطلاعات تیم برای پوستر کامل نیست")
+
+    users_map = {u["id"]: u["name"] async for u in db.users.find({})}
+    r = m["result"]
+    settled_at = m.get("settled_at") or now_iso()
+
+    home_stats = _poster_fantasy_stats(
+        m["stage"], int(home["tier"]), int(r.get("home_goals", 0)), int(r.get("away_goals", 0)),
+        int(r.get("home_yellow", 0)), int(r.get("home_red", 0)),
+    )
+    away_stats = _poster_fantasy_stats(
+        m["stage"], int(away["tier"]), int(r.get("away_goals", 0)), int(r.get("home_goals", 0)),
+        int(r.get("away_yellow", 0)), int(r.get("away_red", 0)),
+    )
+
+    home_total = float(sum(x["finalScore"] for x in home_stats))
+    away_total = float(sum(x["finalScore"] for x in away_stats))
+
+    return {
+        "match": {
+            "status": "تسویه شده",
+            "date": (m.get("kickoff") or "")[:10],
+            "tournamentStage": STAGE_LABELS_FA.get(m["stage"], m["stage"]),
+            "finalScore": f"{r.get('home_goals', 0)} - {r.get('away_goals', 0)}",
+        },
+        "teams": [
+            {
+                "flagUrl": f"https://flagicons.lipis.dev/flags/4x3/{home['code']}.svg",
+                "countryName": home["name_fa"],
+                "tierName": TIER_LABELS_FA.get(int(home["tier"]), f"سطح {home['tier']}"),
+                "matchResult": r.get("home_goals", 0),
+                "fantasyStats": home_stats,
+                "totalMatchScore": home_total,
+                "usersROI": await _team_roi_until(home["id"], settled_at, users_map),
+            },
+            {
+                "flagUrl": f"https://flagicons.lipis.dev/flags/4x3/{away['code']}.svg",
+                "countryName": away["name_fa"],
+                "tierName": TIER_LABELS_FA.get(int(away["tier"]), f"سطح {away['tier']}"),
+                "matchResult": r.get("away_goals", 0),
+                "fantasyStats": away_stats,
+                "totalMatchScore": away_total,
+                "usersROI": await _team_roi_until(away["id"], settled_at, users_map),
+            },
+        ],
+    }
+
+
 @api.post("/admin/matches/settle")
 async def settle_match(body: MatchSettleConfirmIn, admin: dict = Depends(require_admin)):
     m = await db.matches.find_one({"id": body.match_id})
@@ -1122,6 +1241,84 @@ def _stage_from(league_name: str, stage_name: str, match_round: str) -> str:
     return "group"
 
 
+def _is_knockout_hint(*parts: Optional[str]) -> bool:
+    text = " ".join(_norm(p) for p in parts if p)
+    return bool(re.search(r"(round of|1/|quarter|semi|final|playoff|knockout|elimination)", text))
+
+
+def _extract_round_slot(*parts: Optional[str]) -> Optional[int]:
+    text = " ".join(_norm(p) for p in parts if p)
+    if not text:
+        return None
+    patterns = [
+        r"match\s*#?\s*(\d+)",
+        r"game\s*#?\s*(\d+)",
+        r"(\d+)\s*(?:st|nd|rd|th)\s*match",
+        r"round\s*(\d+)",
+        r"-\s*(\d+)$",
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            try:
+                return int(m.group(1))
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
+def _is_knockout_stage(stage: str) -> bool:
+    return stage in KNOCKOUT_STAGE_LIMITS
+
+
+def _normalized_slot(slot: Any) -> int:
+    return slot if isinstance(slot, int) and slot > 0 else UNASSIGNED_BRACKET_SLOT_SORT_KEY
+
+
+async def _sync_knockout_bracket_slots() -> Dict[str, int]:
+    """Validate and auto-assign bracket slots for all knockout stages."""
+    out: Dict[str, int] = {}
+    for stage, max_count in KNOCKOUT_STAGE_LIMITS.items():
+        matches = [m async for m in db.matches.find({"stage": stage})]
+        if len(matches) > max_count:
+            raise HTTPException(
+                status_code=422,
+                detail=f"تعداد مسابقات مرحله {STAGE_LABELS_FA[stage]} ({len(matches)}) بیش از حد مجاز ({max_count}) است",
+            )
+
+        seen_team_ids = set()
+        for m in matches:
+            home_id = m.get("home_team_id")
+            away_id = m.get("away_team_id")
+            if not home_id or not away_id or home_id == away_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"چیدمان براکت نامعتبر در مرحله {STAGE_LABELS_FA[stage]} برای بازی {m.get('id')} (home={home_id}, away={away_id})",
+                )
+            for tid in (home_id, away_id):
+                if tid in seen_team_ids:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"تیم تکراری ({tid}) در مرحله {STAGE_LABELS_FA[stage]} شناسایی شد",
+                    )
+                seen_team_ids.add(tid)
+
+        ordered = sorted(
+            matches,
+            key=lambda m: (
+                _normalized_slot(m.get("bracket_slot")),
+                m.get("kickoff") or "",
+                m.get("external_id") or "",
+                m.get("id") or "",
+            ),
+        )
+        for idx, m in enumerate(ordered, start=1):
+            if m.get("bracket_slot") != idx:
+                await db.matches.update_one({"id": m["id"]}, {"$set": {"bracket_slot": idx}})
+        out[stage] = len(matches)
+    return out
+
+
 def _cards_from_api(api_match: dict, side: str) -> dict:
     """Extract yellow/red card counts for `side` ∈ {'home','away'} from the stats array,
     falling back to scanning the `cards` array."""
@@ -1209,6 +1406,13 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
             unresolved_names.append(f"{h_name} vs {a_name}")
             continue
         stage = _stage_from(ev.get("league_name", ""), ev.get("stage_name", ""), ev.get("match_round", ""))
+        if stage == "group" and _is_knockout_hint(ev.get("league_name", ""), ev.get("stage_name", ""), ev.get("match_round", "")):
+            match_identity = f"id={ev.get('match_id')}, {ev.get('match_hometeam_name')} vs {ev.get('match_awayteam_name')}"
+            raise HTTPException(
+                status_code=422,
+                detail=f"مرحله حذفی ناشناخته از API دریافت شد ({match_identity}): {ev.get('stage_name') or ev.get('match_round') or 'unknown'}؛ نگاشت مرحله را بررسی کنید یا نام مرحله API را اصلاح کنید",
+            )
+        round_slot = _extract_round_slot(ev.get("stage_name", ""), ev.get("match_round", ""))
         kickoff_str = f"{ev.get('match_date', '')}T{ev.get('match_time') or '00:00'}:00+00:00"
         api_status = (ev.get("match_status") or "").strip()
         is_finished = api_status.lower() == "finished"
@@ -1218,7 +1422,7 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
             if existing.get("status") == "settled":
                 continue
             new_status = "finished_pending" if is_finished else "scheduled"
-            await db.matches.update_one({"id": existing["id"]}, {"$set": {
+            update_fields = {
                 "kickoff": kickoff_str,
                 "stage": stage,
                 "api_data": ev,
@@ -1228,7 +1432,12 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
                 "match_round": ev.get("match_round"),
                 "match_stadium": ev.get("match_stadium"),
                 "match_referee": ev.get("match_referee"),
-            }})
+            }
+            if _is_knockout_stage(stage):
+                update_fields["bracket_slot"] = round_slot
+            else:
+                update_fields["bracket_slot"] = None
+            await db.matches.update_one({"id": existing["id"]}, {"$set": update_fields})
             updated += 1
             if is_finished:
                 finished_pending += 1
@@ -1249,15 +1458,17 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
                 "match_round": ev.get("match_round"),
                 "match_stadium": ev.get("match_stadium"),
                 "match_referee": ev.get("match_referee"),
+                "bracket_slot": round_slot if _is_knockout_stage(stage) else None,
             }
             await db.matches.insert_one(doc)
             created += 1
             if is_finished:
                 finished_pending += 1
 
+    bracket = await _sync_knockout_bracket_slots()
     await log_event("fetch.api",
                     {"created": created, "updated": updated,
-                     "finished_pending": finished_pending, "unresolved": unresolved},
+                     "finished_pending": finished_pending, "unresolved": unresolved, "bracket": bracket},
                     admin["id"])
     return {
         "ok": True,
@@ -1267,6 +1478,7 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
         "finished_pending": finished_pending,
         "unresolved": unresolved,
         "unresolved_names": unresolved_names[:20],
+        "bracket": bracket,
     }
 
 
@@ -1374,11 +1586,12 @@ async def standings(user: dict = Depends(get_current_user)):
 
 @api.get("/bracket")
 async def bracket(user: dict = Depends(get_current_user)):
-    """Return all knockout matches for visualization (admin can create these)."""
+    """Return knockout matches in deterministic, validated bracket slot order."""
+    await _sync_knockout_bracket_slots()
     out = {}
     for stage in ["r32", "r16", "qf", "sf", "third", "final"]:
         out[stage] = []
-        async for m in db.matches.find({"stage": stage}).sort("kickoff", 1):
+        async for m in db.matches.find({"stage": stage}).sort([("bracket_slot", 1), ("kickoff", 1), ("external_id", 1)]):
             clean(m)
             out[stage].append(m)
     return out
