@@ -1271,6 +1271,10 @@ def _is_knockout_stage(stage: str) -> bool:
     return stage in KNOCKOUT_STAGE_LIMITS
 
 
+def _normalized_slot(slot: Any) -> int:
+    return slot if isinstance(slot, int) and slot > 0 else UNASSIGNED_BRACKET_SLOT_SORT_KEY
+
+
 async def _sync_knockout_bracket_slots() -> Dict[str, int]:
     """Validate and auto-assign bracket slots for all knockout stages."""
     out: Dict[str, int] = {}
@@ -1302,7 +1306,7 @@ async def _sync_knockout_bracket_slots() -> Dict[str, int]:
         ordered = sorted(
             matches,
             key=lambda m: (
-                m.get("bracket_slot") if isinstance(m.get("bracket_slot"), int) and m.get("bracket_slot") > 0 else UNASSIGNED_BRACKET_SLOT_SORT_KEY,
+                _normalized_slot(m.get("bracket_slot")),
                 m.get("kickoff") or "",
                 m.get("external_id") or "",
                 m.get("id") or "",
@@ -1403,9 +1407,10 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
             continue
         stage = _stage_from(ev.get("league_name", ""), ev.get("stage_name", ""), ev.get("match_round", ""))
         if stage == "group" and _is_knockout_hint(ev.get("league_name", ""), ev.get("stage_name", ""), ev.get("match_round", "")):
+            match_identity = f"id={ev.get('match_id')}, {ev.get('match_hometeam_name')} vs {ev.get('match_awayteam_name')}"
             raise HTTPException(
                 status_code=422,
-                detail=f"مرحله حذفی ناشناخته از API دریافت شد: {ev.get('stage_name') or ev.get('match_round') or 'unknown'}؛ نگاشت مرحله را بررسی کنید یا نام مرحله API را اصلاح کنید",
+                detail=f"مرحله حذفی ناشناخته از API دریافت شد ({match_identity}): {ev.get('stage_name') or ev.get('match_round') or 'unknown'}؛ نگاشت مرحله را بررسی کنید یا نام مرحله API را اصلاح کنید",
             )
         round_slot = _extract_round_slot(ev.get("stage_name", ""), ev.get("match_round", ""))
         kickoff_str = f"{ev.get('match_date', '')}T{ev.get('match_time') or '00:00'}:00+00:00"

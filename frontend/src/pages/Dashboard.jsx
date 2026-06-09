@@ -15,7 +15,7 @@ import { fmtCoins, fmtSigned, avatarUrl } from "@/lib/format";
 import { Coins, TrendingUp, Activity, Trophy } from "lucide-react";
 import PortfolioModal from "@/components/PortfolioModal";
 
-const PALETTE = ["#FFD700", "#00FFFF", "#00FF41", "#9D4CDD", "#FF6B6B", "#7DDFFF", "#FFA500", "#A29BFE", "#FF8FAB", "#FF00FF"];
+const PALETTE = ["#FF00FF", "#00FFFF", "#00FF41", "#9D4CDD", "#FFD700", "#FF6B6B", "#7DDFFF", "#FFA500", "#A29BFE", "#FF8FAB"];
 
 export default function Dashboard() {
   const { user } = useAuth();
