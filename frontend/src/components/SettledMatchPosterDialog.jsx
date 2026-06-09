@@ -8,9 +8,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { fmtCoins, fmtSigned, toFaDigits } from "@/lib/format";
 
 const BACKGROUNDS = ["/images/blue.jpg", "/images/green.jpg", "/images/purple.jpg", "/images/red.jpg"];
+const DEFAULT_BG = "/images/blue.jpg";
 
 function randomBackground() {
   return BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+}
+
+async function ensureImageExists(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(true);
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
 }
 
 function normalizePosterData(raw) {
@@ -95,7 +105,11 @@ export default function SettledMatchPosterDialog({ matchId }) {
     let cancelled = false;
     setLoading(true);
     setMatchData(null);
-    setBgImage(randomBackground());
+    const selectedBg = randomBackground();
+    setBgImage(selectedBg);
+    ensureImageExists(selectedBg).then((ok) => {
+      if (!ok && !cancelled) setBgImage(DEFAULT_BG);
+    });
     api.get(`/admin/matches/${matchId}/poster`).then((res) => {
       if (cancelled) return;
       const normalized = normalizePosterData(res.data);

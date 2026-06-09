@@ -75,6 +75,7 @@ TIER_LABELS_FA = {
     6: "سطح F",
 }
 KNOCKOUT_STAGE_LIMITS = {"r32": 16, "r16": 8, "qf": 4, "sf": 2, "third": 1, "final": 1}
+UNASSIGNED_BRACKET_SLOT_SORT_KEY = 10_000
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -1276,23 +1277,32 @@ async def _sync_knockout_bracket_slots() -> Dict[str, int]:
     for stage, max_count in KNOCKOUT_STAGE_LIMITS.items():
         matches = [m async for m in db.matches.find({"stage": stage})]
         if len(matches) > max_count:
-            raise HTTPException(status_code=422, detail=f"تعداد مسابقات مرحله {STAGE_LABELS_FA[stage]} بیش از حد مجاز است")
+            raise HTTPException(
+                status_code=422,
+                detail=f"تعداد مسابقات مرحله {STAGE_LABELS_FA[stage]} ({len(matches)}) بیش از حد مجاز ({max_count}) است",
+            )
 
         seen_team_ids = set()
         for m in matches:
             home_id = m.get("home_team_id")
             away_id = m.get("away_team_id")
             if not home_id or not away_id or home_id == away_id:
-                raise HTTPException(status_code=422, detail=f"چیدمان براکت نامعتبر در مرحله {STAGE_LABELS_FA[stage]}")
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"چیدمان براکت نامعتبر در مرحله {STAGE_LABELS_FA[stage]} برای بازی {m.get('id')} (home={home_id}, away={away_id})",
+                )
             for tid in (home_id, away_id):
                 if tid in seen_team_ids:
-                    raise HTTPException(status_code=422, detail=f"تیم تکراری در مرحله {STAGE_LABELS_FA[stage]} شناسایی شد")
+                    raise HTTPException(
+                        status_code=422,
+                        detail=f"تیم تکراری ({tid}) در مرحله {STAGE_LABELS_FA[stage]} شناسایی شد",
+                    )
                 seen_team_ids.add(tid)
 
         ordered = sorted(
             matches,
             key=lambda m: (
-                m.get("bracket_slot") if isinstance(m.get("bracket_slot"), int) and m.get("bracket_slot") > 0 else 10_000,
+                m.get("bracket_slot") if isinstance(m.get("bracket_slot"), int) and m.get("bracket_slot") > 0 else UNASSIGNED_BRACKET_SLOT_SORT_KEY,
                 m.get("kickoff") or "",
                 m.get("external_id") or "",
                 m.get("id") or "",
@@ -1393,7 +1403,10 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
             continue
         stage = _stage_from(ev.get("league_name", ""), ev.get("stage_name", ""), ev.get("match_round", ""))
         if stage == "group" and _is_knockout_hint(ev.get("league_name", ""), ev.get("stage_name", ""), ev.get("match_round", "")):
-            raise HTTPException(status_code=422, detail=f"مرحله حذفی ناشناخته از API دریافت شد: {ev.get('stage_name') or ev.get('match_round') or 'unknown'}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"مرحله حذفی ناشناخته از API دریافت شد: {ev.get('stage_name') or ev.get('match_round') or 'unknown'}؛ نگاشت مرحله را بررسی کنید یا نام مرحله API را اصلاح کنید",
+            )
         round_slot = _extract_round_slot(ev.get("stage_name", ""), ev.get("match_round", ""))
         kickoff_str = f"{ev.get('match_date', '')}T{ev.get('match_time') or '00:00'}:00+00:00"
         api_status = (ev.get("match_status") or "").strip()
