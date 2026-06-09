@@ -1,0 +1,140 @@
+{
+  "project_context": {
+    "domain": "Gamified fintech trading platform & sports analytics dashboard",
+    "theme": "dark",
+    "archetype": "Archetype 7 (Electric & Neon) + Archetype 2 (Performance Pro)",
+    "direction": "rtl",
+    "language": "fa"
+  },
+  "typography": {
+    "font_families": {
+      "headings": "Vazirmatn",
+      "body": "Vazirmatn",
+      "numbers_and_tickers": "JetBrains Mono"
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl font-black tracking-tighter",
+      "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h3": "text-xl font-semibold",
+      "h4": "text-lg font-medium",
+      "body": "text-base font-normal leading-relaxed",
+      "labels": "text-xs font-bold uppercase tracking-[0.1em]"
+    },
+    "rules": [
+      "Use Vazirmatn for all Persian text.",
+      "Use JetBrains Mono for Coin balances, stock prices, and multipliers.",
+      "Never use default generic fonts. Load Vazirmatn and JetBrains Mono from Google Fonts.",
+      "Ensure text sizes accommodate Persian script which often needs slightly more vertical breathing room."
+    ]
+  },
+  "colors": {
+    "backgrounds": {
+      "page": "#060B19",
+      "card": "#0F1626",
+      "panel": "rgba(15, 22, 38, 0.7)",
+      "glass": "rgba(6, 11, 25, 0.6)"
+    },
+    "accents": {
+      "neon_purple": "#9D4CDD",
+      "magenta": "#FF00FF",
+      "cyan": "#00FFFF",
+      "bright_green": "#00FF41",
+      "gold": "#FFD700"
+    },
+    "text": {
+      "primary": "#FFFFFF",
+      "secondary": "#9CA3AF",
+      "muted": "#6B7280",
+      "accent": "#00FFFF"
+    },
+    "status": {
+      "positive_roi": "#00FF41",
+      "negative_roi": "#FF00FF",
+      "warning": "#FFD700"
+    },
+    "rules": [
+      "Use Dark Navy (#060B19) as the absolute anchor.",
+      "Use Neon Purple and Cyan for ambient glows and brand moments.",
+      "Use Bright Green and Magenta strictly for positive/negative financial indicators (ROI, Goals, Cards).",
+      "NO muddy gradients. Use 1px borders with glowing drop-shadows."
+    ]
+  },
+  "layout_and_spacing": {
+    "system": "RTL Control Room Grid",
+    "rules": [
+      "Mobile-first responsive grids.",
+      "Dashboard follows a dense 'Control Room' grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4 with gap-4 or gap-6.",
+      "Portfolio Grid: Bento-style mixed spans.",
+      "ALWAYS use dir='rtl' on the root HTML. Tailwind utility classes must use logical properties (ps-4, pe-4, ms-auto, border-s).",
+      "Cards must have at least p-6 padding to prevent text collision."
+    ],
+    "surfaces": [
+      "Glassmorphism: Use backdrop-blur-xl bg-[#0F1626]/70 border border-white/10 for floating navs and sticky headers.",
+      "Data Cards: Solid #0F1626 background, 1px border-white/5, subtle inner shadow.",
+      "Grid Borders: Use border-collapse for the 12 Group Tables."
+    ]
+  },
+  "components": {
+    "ui_library": "shadcn/ui",
+    "icons": "lucide-react",
+    "charts": "recharts",
+    "specific_instructions": [
+      "Flags: DO NOT USE EMOJIS. Use <img src='https://flagcdn.com/w80/{country_code}.png' alt='Flag' />.",
+      "Avatars: Use DiceBear for generated players: <img src='https://api.dicebear.com/7.x/avataaars/svg?seed={username}' alt='Avatar' />.",
+      "Tables: 12 Group Tables must be compact, using Shadcn Table.",
+      "Coins: Use the generated 3D fantasy coin image for the Coin icon.",
+      "Trading UI: Blind bidding needs Shadcn Dialog + Form.",
+      "Ledger Feed: Auto-scrolling or latest-first list with bright green/magenta transaction highlights.",
+      "Testing: Ensure all interactive elements have data-testid attributes (e.g. data-testid='buy-team-btn')."
+    ]
+  },
+  "motion_and_interactions": {
+    "rules": [
+      "Coin transactions must have a subtle flash (green or magenta) on update.",
+      "Hovering over team cards lifts them (-translate-y-1) and intensifies the neon border glow.",
+      "Modals/Dialogs use swift scale-in animations."
+    ]
+  },
+  "media": {
+    "image_urls": [
+      {
+        "category": "icon",
+        "description": "Fantasy Coin Icon (3D futuristic soccer cryptocurrency)",
+        "url": "https://static.prod-images.emergentagent.com/jobs/57f8ee26-e917-46e5-af9b-0d65e850dac5/images/1198d972cb7a3749442a56a8a8aa0cd9f593d4c5b9446a7ba21d1fa1709d8e3d.png"
+      },
+      {
+        "category": "background",
+        "description": "Dark Navy Premium Sports Dashboard Background with subtle neon flares",
+        "url": "https://static.prod-images.emergentagent.com/jobs/57f8ee26-e917-46e5-af9b-0d65e850dac5/images/8a560778bc102cfc57e3895b9779a329b32e6b02f52561d6a42dc7d2a164ffd4.png"
+      },
+      {
+        "category": "background",
+        "description": "Night soccer stadium lights for login screen background",
+        "url": "https://images.unsplash.com/photo-1522778119026-d647f0596c20?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwxfHxzb2NjZXIlMjBzdGFkaXVtJTIwbmlnaHQlMjBsaWdodHN8ZW58MHx8fHwxNzgwMDcxMDU1fDA&ixlib=rb-4.1.0&q=85"
+      }
+    ],
+    "external_assets": [
+      {
+        "category": "flags",
+        "description": "National Flags CDN",
+        "pattern": "https://flagcdn.com/w80/{country_code}.png"
+      },
+      {
+        "category": "avatars",
+        "description": "Player Avatars",
+        "pattern": "https://api.dicebear.com/7.x/avataaars/svg?seed={persian_name}"
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Initialize React with RTL support (dir='rtl' in index.html).",
+    "Install and configure Vazirmatn and JetBrains Mono from Google Fonts.",
+    "Set up Tailwind to use logical properties for RTL spacing (e.g., use 'ps', 'pe', 'ms', 'me' instead of 'pl', 'pr', 'ml', 'mr').",
+    "Create the hybrid layout: Sidebar navigation for Desktop, Bottom Bar for Mobile.",
+    "Implement the 'God Mode' Admin Panel securely.",
+    "Build the Public Ledger Feed with real-time aesthetic.",
+    "Build the My Portfolio bento grid.",
+    "DO NOT USE EMOJIS for flags under any circumstance.",
+    "Include data-testid on every clickable button, form input, and table row."
+  ]
+}
