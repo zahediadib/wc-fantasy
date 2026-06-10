@@ -82,7 +82,7 @@ function TeamPosterColumn({ team }) {
             {team.usersROI.length === 0 ? <div>بدون داده</div> : team.usersROI.slice(0, 3).map((u) => (
               <div key={`${team.countryName}-${u.userId}`} className="flex items-center justify-between gap-2">
                 <span className="truncate">{u.userName}</span>
-                <spanstyle={{ direction: "ltr" }} className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
+                <span style={{ direction: "ltr" }} className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
               </div>
             ))}
           </div>
