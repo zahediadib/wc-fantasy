@@ -65,7 +65,7 @@ function TeamPosterColumn({ team }) {
           {team.fantasyStats.map((s, idx) => (
             <div key={`${team.countryName}-${idx}`} className="flex items-center justify-between text-[13px] text-white/95">
               <span>{s.title}</span>
-              <span className={`mono font-bold ${s.finalScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(s.finalScore)}</span>
+              <span style={{ direction: "ltr" }} className={`mono font-bold ${s.finalScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(s.finalScore)}</span>
             </div>
           ))}
         </div>
@@ -74,7 +74,7 @@ function TeamPosterColumn({ team }) {
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-yellow-300/40 bg-yellow-500/10 p-3">
           <div className="text-[11px] text-yellow-100">جمع امتیاز مسابقه</div>
-          <div className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
+          <div style={{ direction: "ltr" }} className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
         </div>
         <div className="rounded-xl border border-cyan-300/40 bg-cyan-500/10 p-3">
           <div className="text-[11px] text-cyan-100">بازگشت سرمایه بازیکن</div>
@@ -82,7 +82,7 @@ function TeamPosterColumn({ team }) {
             {team.usersROI.length === 0 ? <div>بدون داده</div> : team.usersROI.slice(0, 3).map((u) => (
               <div key={`${team.countryName}-${u.userId}`} className="flex items-center justify-between gap-2">
                 <span className="truncate">{u.userName}</span>
-                <span className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
+                <span style={{ direction: "ltr" }} className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
               </div>
             ))}
           </div>
@@ -139,7 +139,7 @@ export default function SettledMatchPosterDialog({ matchId }) {
         cacheBust: true,
         pixelRatio: 3,
         quality: 1,
-        canvasWidth: 1920,
+        canvasWidth: 1080,
         canvasHeight: 1080,
         skipFonts: false,
       });
