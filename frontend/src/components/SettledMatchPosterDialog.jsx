@@ -218,21 +218,19 @@ const PosterCanvas = React.forwardRef(function PosterCanvas({ matchData, bgImage
               <span>•</span>
               <span>{matchData.match.date}</span>
             </div>
+            <div className="mt-4 text-5xl font-black text-emerald-200 tracking-wide">{matchData.match.finalScore}</div>
           </div>
 
-          {/* تغییر به ساختار ۳ ستونه برای توزیع مناسب در عرض ۱۹۲۰ */}
-          <div className="mt-8 grid grid-cols-[1fr_350px_1fr] gap-8 flex-1 items-center">
+          <div className="mt-8 grid grid-cols-2 gap-8 flex-1 items-center">
             <TeamPosterColumn team={home} />
 
-            {/* ستون وسط برای نمایش اسکور نهایی */}
-            <div className="h-full rounded-3xl border border-white/20 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center shadow-xl">
-              <div className="text-sm text-gray-400 mb-2">نتیجه نهایی مسابقه</div>
-              <div className="text-7xl font-black text-emerald-300 drop-shadow-[0_4px_20px_rgba(16,185,129,0.4)] tracking-wide">
-                {matchData.match.finalScore}
-              </div>
-              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent my-6" />
-              <div className="text-xs text-cyan-200/80 leading-relaxed">سامانه فانتزی جام جهانی ۲۰۲۶</div>
-            </div>
+            {/*<div className="h-full rounded-3xl border border-white/30 bg-white/10 backdrop-blur-xl flex flex-col items-center justify-center p-4">*/}
+            {/*  <div className="text-[11px] text-gray-200 mb-2">وضعیت</div>*/}
+            {/*  <div className="text-lg font-bold text-emerald-200">{matchData.match.status}</div>*/}
+            {/*  <div className="w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent my-4" />*/}
+            {/*  <div className="text-[11px] text-gray-200">نتیجه نهایی</div>*/}
+            {/*  <div className="text-4xl font-black text-white mt-2">{matchData.match.finalScore}</div>*/}
+            {/*</div>*/}
 
             <TeamPosterColumn team={away} />
           </div>
