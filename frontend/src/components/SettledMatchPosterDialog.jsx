@@ -65,7 +65,7 @@ function TeamPosterColumn({ team }) {
           {team.fantasyStats.map((s, idx) => (
             <div key={`${team.countryName}-${idx}`} className="flex items-center justify-between text-[13px] text-white/95">
               <span>{s.title}</span>
-              <span className={`mono font-bold ${s.finalScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(s.finalScore)}</span>
+              <span dir="ltr" className={`mono font-bold ${s.finalScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(s.finalScore)}</span>
             </div>
           ))}
         </div>
@@ -74,7 +74,7 @@ function TeamPosterColumn({ team }) {
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-yellow-300/40 bg-yellow-500/10 p-3">
           <div className="text-[11px] text-yellow-100">جمع امتیاز مسابقه</div>
-          <div className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
+          <div dir="ltr" className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
         </div>
         <div className="rounded-xl border border-cyan-300/40 bg-cyan-500/10 p-3">
           <div className="text-[11px] text-cyan-100">بازگشت سرمایه بازیکن</div>
@@ -82,7 +82,7 @@ function TeamPosterColumn({ team }) {
             {team.usersROI.length === 0 ? <div>بدون داده</div> : team.usersROI.slice(0, 3).map((u) => (
               <div key={`${team.countryName}-${u.userId}`} className="flex items-center justify-between gap-2">
                 <span className="truncate">{u.userName}</span>
-                <span className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
+                <span dir="ltr" className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
               </div>
             ))}
           </div>
@@ -175,7 +175,7 @@ export default function SettledMatchPosterDialog({ matchId }) {
         ) : (
           <>
             <div className="rounded-xl border border-white/15 overflow-hidden bg-black/20">
-              <div className="origin-top-left scale-[0.62] w-[1080px] h-[1080px] -mb-[410px] -mr-[205px]">
+              <div className="origin-top-left scale-[0.45] w-[1920px] h-[1080px] -mb-[410px] -mr-[205px]">
                 <PosterCanvas ref={posterRef} matchData={matchData} bgImage={bgImage} />
               </div>
             </div>
@@ -194,43 +194,49 @@ export default function SettledMatchPosterDialog({ matchId }) {
 const PosterCanvas = React.forwardRef(function PosterCanvas({ matchData, bgImage }, ref) {
   const [home, away] = matchData.teams;
   return (
-    <div
-      ref={ref}
-      className="w-[1080px] h-[1080px] relative overflow-hidden text-white"
-      style={{
-        fontFamily: "Vazirmatn, sans-serif",
-        backgroundImage: `linear-gradient(140deg, rgba(4,10,24,0.75), rgba(8,12,18,0.45)), url(${bgImage})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,215,0,0.2),transparent_55%)]" />
-      <div className="relative h-full p-10 flex flex-col">
-        <div className="rounded-3xl border border-yellow-200/40 bg-white/10 backdrop-blur-xl p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
-          <div className="text-xs tracking-[0.2em] text-yellow-100/90">WORLD CUP 2026 · FANTASY SETTLEMENT</div>
-          <div className="mt-2 text-4xl font-black drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)]">نتیجه بازی</div>
-          <div className="mt-2 flex items-center justify-center gap-4 text-sm text-cyan-100">
-            <span>{matchData.match.status}</span>
-            <span>•</span>
-            <span>{matchData.match.tournamentStage}</span>
-            <span>•</span>
-            <span>{matchData.match.date}</span>
+      <div
+          ref={ref}
+          // تغییر عرض به 1920px
+          className="w-[1920px] h-[1080px] relative overflow-hidden text-white"
+          style={{
+            fontFamily: "Vazirmatn, sans-serif",
+            backgroundImage: `linear-gradient(140deg, rgba(4,10,24,0.75), rgba(8,12,18,0.45)), url(${bgImage})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,215,0,0.2),transparent_55%)]" />
+        <div className="relative h-full p-10 flex flex-col">
+          {/* هدر پوستر */}
+          <div className="rounded-3xl border border-yellow-200/40 bg-white/10 backdrop-blur-xl p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
+            <div className="text-xs tracking-[0.2em] text-yellow-100/90">WORLD CUP 2026 · FANTASY SETTLEMENT</div>
+            <div className="mt-2 text-4xl font-black drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)]">نتیجه بازی</div>
+            <div className="mt-2 flex items-center justify-center gap-4 text-sm text-cyan-100">
+              <span>{matchData.match.status}</span>
+              <span>•</span>
+              <span>{matchData.match.tournamentStage}</span>
+              <span>•</span>
+              <span>{matchData.match.date}</span>
+            </div>
           </div>
-          <div className="mt-4 text-5xl font-black text-emerald-200 tracking-wide">{matchData.match.finalScore}</div>
-        </div>
 
-        <div className="mt-8 grid {/*grid-cols-[1fr_180px_1fr]*/} grid-cols-2 gap-5 flex-1">
-          <TeamPosterColumn team={home} />
-          {/*<div className="h-full rounded-3xl border border-white/30 bg-white/10 backdrop-blur-xl flex flex-col items-center justify-center p-4">*/}
-          {/*  <div className="text-[11px] text-gray-200 mb-2">وضعیت</div>*/}
-          {/*  <div className="text-lg font-bold text-emerald-200">{matchData.match.status}</div>*/}
-          {/*  <div className="w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent my-4" />*/}
-          {/*  <div className="text-[11px] text-gray-200">نتیجه نهایی</div>*/}
-          {/*  <div className="text-4xl font-black text-white mt-2">{matchData.match.finalScore}</div>*/}
-          {/*</div>*/}
-          <TeamPosterColumn team={away} />
+          {/* تغییر به ساختار ۳ ستونه برای توزیع مناسب در عرض ۱۹۲۰ */}
+          <div className="mt-8 grid grid-cols-[1fr_350px_1fr] gap-8 flex-1 items-center">
+            <TeamPosterColumn team={home} />
+
+            {/* ستون وسط برای نمایش اسکور نهایی */}
+            <div className="h-full rounded-3xl border border-white/20 bg-black/40 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center shadow-xl">
+              <div className="text-sm text-gray-400 mb-2">نتیجه نهایی مسابقه</div>
+              <div className="text-7xl font-black text-emerald-300 drop-shadow-[0_4px_20px_rgba(16,185,129,0.4)] tracking-wide">
+                {matchData.match.finalScore}
+              </div>
+              <div className="w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent my-6" />
+              <div className="text-xs text-cyan-200/80 leading-relaxed">سامانه فانتزی جام جهانی ۲۰۲۶</div>
+            </div>
+
+            <TeamPosterColumn team={away} />
+          </div>
         </div>
       </div>
-    </div>
   );
 });
