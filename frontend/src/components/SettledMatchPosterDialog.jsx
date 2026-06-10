@@ -59,8 +59,8 @@ function TeamPosterColumn({ team }) {
         <div className="mr-auto text-4xl font-black text-cyan-200 drop-shadow-[0_4px_18px_rgba(0,255,255,0.35)]">{toFaDigits(team.matchResult ?? 0)}</div>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/25 bg-black/30 p-4">
-        <div className="text-[13px] font-bold text-white mb-2">جزئیات امتیازات فانتزی</div>
+      <div className="mt-5 min-h-[200px] rounded-2xl border border-white/25 bg-black/30 p-4">
+        <div className="text-[13px] text-[center] font-bold text-white mb-4">جزئیات امتیازات فانتزی</div>
         <div className="space-y-1.5">
           {team.fantasyStats.map((s, idx) => (
             <div key={`${team.countryName}-${idx}`} className="flex items-center justify-between text-[13px] text-white/95">
@@ -77,7 +77,7 @@ function TeamPosterColumn({ team }) {
           <div className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
         </div>
         <div className="rounded-xl border border-cyan-300/40 bg-cyan-500/10 p-3">
-          <div className="text-[11px] text-cyan-100">بازگشت سرمایه کاربران</div>
+          <div className="text-[11px] text-cyan-100">بازگشت سرمایه بازیکن</div>
           <div className="text-[11px] text-cyan-50 mt-1 space-y-1 max-h-16 overflow-hidden">
             {team.usersROI.length === 0 ? <div>بدون داده</div> : team.usersROI.slice(0, 3).map((u) => (
               <div key={`${team.countryName}-${u.userId}`} className="flex items-center justify-between gap-2">
@@ -139,7 +139,7 @@ export default function SettledMatchPosterDialog({ matchId }) {
         cacheBust: true,
         pixelRatio: 3,
         quality: 1,
-        canvasWidth: 1080,
+        canvasWidth: 1920,
         canvasHeight: 1080,
         skipFonts: false,
       });
@@ -208,7 +208,7 @@ const PosterCanvas = React.forwardRef(function PosterCanvas({ matchData, bgImage
       <div className="relative h-full p-10 flex flex-col">
         <div className="rounded-3xl border border-yellow-200/40 bg-white/10 backdrop-blur-xl p-6 text-center shadow-[0_20px_80px_rgba(0,0,0,0.35)]">
           <div className="text-xs tracking-[0.2em] text-yellow-100/90">WORLD CUP 2026 · FANTASY SETTLEMENT</div>
-          <div className="mt-2 text-4xl font-black drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)]">پوستر تسویه بازی</div>
+          <div className="mt-2 text-4xl font-black drop-shadow-[0_4px_18px_rgba(0,0,0,0.7)]">نتیجه بازی</div>
           <div className="mt-2 flex items-center justify-center gap-4 text-sm text-cyan-100">
             <span>{matchData.match.status}</span>
             <span>•</span>
@@ -219,15 +219,15 @@ const PosterCanvas = React.forwardRef(function PosterCanvas({ matchData, bgImage
           <div className="mt-4 text-5xl font-black text-emerald-200 tracking-wide">{matchData.match.finalScore}</div>
         </div>
 
-        <div className="mt-8 grid grid-cols-[1fr_180px_1fr] gap-5 flex-1">
+        <div className="mt-8 grid {/*grid-cols-[1fr_180px_1fr]*/} grid-cols-2 gap-5 flex-1">
           <TeamPosterColumn team={home} />
-          <div className="h-full rounded-3xl border border-white/30 bg-white/10 backdrop-blur-xl flex flex-col items-center justify-center p-4">
-            <div className="text-[11px] text-gray-200 mb-2">وضعیت</div>
-            <div className="text-lg font-bold text-emerald-200">{matchData.match.status}</div>
-            <div className="w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent my-4" />
-            <div className="text-[11px] text-gray-200">نتیجه نهایی</div>
-            <div className="text-4xl font-black text-white mt-2">{matchData.match.finalScore}</div>
-          </div>
+          {/*<div className="h-full rounded-3xl border border-white/30 bg-white/10 backdrop-blur-xl flex flex-col items-center justify-center p-4">*/}
+          {/*  <div className="text-[11px] text-gray-200 mb-2">وضعیت</div>*/}
+          {/*  <div className="text-lg font-bold text-emerald-200">{matchData.match.status}</div>*/}
+          {/*  <div className="w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent my-4" />*/}
+          {/*  <div className="text-[11px] text-gray-200">نتیجه نهایی</div>*/}
+          {/*  <div className="text-4xl font-black text-white mt-2">{matchData.match.finalScore}</div>*/}
+          {/*</div>*/}
           <TeamPosterColumn team={away} />
         </div>
       </div>

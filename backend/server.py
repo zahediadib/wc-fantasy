@@ -67,12 +67,12 @@ STAGE_LABELS_FA = {
     "final": "فینال",
 }
 TIER_LABELS_FA = {
-    1: "سطح A",
-    2: "سطح B",
-    3: "سطح C",
-    4: "سطح D",
-    5: "سطح E",
-    6: "سطح F",
+    1: "سطح ۱",
+    2: "سطح ۲",
+    3: "سطح ۳",
+    4: "سطح ۴",
+    5: "سطح ۵",
+    6: "سطح ۶",
 }
 KNOCKOUT_STAGE_LIMITS = {"r32": 16, "r16": 8, "qf": 4, "sf": 2, "third": 1, "final": 1}
 UNASSIGNED_BRACKET_SLOT_SORT_KEY = 10_000
@@ -272,7 +272,7 @@ async def seed_admin_and_players():
         ("sina", "سینا"),
         ("arman", "آرمان"),
     ]
-    for uname, fa_name in default_players:
+"""     for uname, fa_name in default_players:
         if not await db.users.find_one({"username": uname}):
             await db.users.insert_one({
                 "id": gen_id(),
@@ -282,7 +282,7 @@ async def seed_admin_and_players():
                 "role": "player",
                 "balance": DEFAULT_START_BALANCE,
                 "created_at": now_iso(),
-            })
+            }) """
 
 
 async def seed_teams():
