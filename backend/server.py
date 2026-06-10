@@ -725,6 +725,39 @@ async def _team_roi_until(team_id: str, settled_at: str, users_map: Dict[str, st
         })
     return out
 
+async def _team_last_balance_until(team_id: str, settled_at: str, users_map: Dict[str, str]) -> List[dict]:
+    rows = await db.ledger.aggregate([
+        # ۱. فیلتر کردن رکوردهای مربوط به این تیم تا زمان مشخص شده
+        {"$match": {"meta.team_id": team_id, "ts": {"$lte": settled_at}}},
+
+        # ۲. مرتب‌سازی نزولی بر اساس زمان (مهم‌ترین بخش)
+        # این کار باعث می‌شود تا برای هر شخص، جدیدترین تراکنش در بالای لیست قرار بگیرد
+        {"$sort": {"ts": -1}},
+
+        # ۳. دسته‌بندی بر اساس کاربر
+        # چون در مرحله قبل رکوردها را از جدید به قدیم مرتب کردیم،
+        # دستور $first دقیقا آخرین balance_after کاربر (نزدیک‌ترین به settled_at) را برمی‌دارد
+        {"$group": {
+            "_id": "$user_id",
+            "last_balance": {"$first": "$balance_after"}
+        }},
+
+        # ۴. مرتب‌سازی خروجی نهایی از بیشترین موجودی به کمترین (مانند تابع قبلی)
+        {"$sort": {"last_balance": -1}}
+
+    ]).to_list(100)  # دریافت ۱۰۰ نفر برتر (اگر همه کاربران را می‌خواهید این عدد را بزرگتر کنید یا None بگذارید)
+
+    out = []
+    for row in rows:
+        uid = row["_id"]
+        out.append({
+            "userId": uid,
+            "userName": users_map.get(uid, "کاربر"),
+            # استفاده از .get تا در صورت ثبت نشدن فیلد در دیتابیس، ارور نگیریم (مقدار پیش‌فرض ۰)
+            "balanceAfter": float(row.get("last_balance", 0)),
+        })
+
+    return out
 
 @api.get("/admin/matches/{match_id}/poster")
 async def settled_match_poster_data(match_id: str, admin: dict = Depends(require_admin)):
@@ -771,6 +804,7 @@ async def settled_match_poster_data(match_id: str, admin: dict = Depends(require
                 "fantasyStats": home_stats,
                 "totalMatchScore": home_total,
                 "usersROI": await _team_roi_until(home["id"], settled_at, users_map),
+                "balanceAfter": await _team_last_balance_until(home["id"], settled_at, users_map),
             },
             {
                 "flagUrl": f"https://flagicons.lipis.dev/flags/4x3/{away['code']}.svg",
@@ -780,6 +814,7 @@ async def settled_match_poster_data(match_id: str, admin: dict = Depends(require
                 "fantasyStats": away_stats,
                 "totalMatchScore": away_total,
                 "usersROI": await _team_roi_until(away["id"], settled_at, users_map),
+                "balanceAfter": await _team_last_balance_until(away["id"], settled_at, users_map),
             },
         ],
     }
