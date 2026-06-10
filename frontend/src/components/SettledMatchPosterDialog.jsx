@@ -49,7 +49,7 @@ async function waitForImages(root) {
 
 function TeamPosterColumn({ team }) {
   return (
-    <div className="rounded-3xl border border-white/30 bg-white/10 backdrop-blur-xl p-6 shadow-[0_15px_60px_rgba(0,0,0,0.35)]">
+      <div className="w-[750px] rounded-3xl border border-white/30 bg-white/10 backdrop-blur-xl p-6 shadow-[0_15px_60px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-4">
         <img src={team.flagUrl} alt={team.countryName} className="w-16 h-11 object-cover rounded-lg ring-1 ring-white/60" crossOrigin="anonymous" />
         <div>
@@ -65,7 +65,7 @@ function TeamPosterColumn({ team }) {
           {team.fantasyStats.map((s, idx) => (
             <div key={`${team.countryName}-${idx}`} className="flex items-center justify-between text-[13px] text-white/95">
               <span>{s.title}</span>
-              <span dir="ltr" className={`mono font-bold ${s.finalScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(s.finalScore)}</span>
+              <span style="direction: ltr" className={`mono font-bold ${s.finalScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(s.finalScore)}</span>
             </div>
           ))}
         </div>
@@ -74,7 +74,7 @@ function TeamPosterColumn({ team }) {
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-yellow-300/40 bg-yellow-500/10 p-3">
           <div className="text-[11px] text-yellow-100">جمع امتیاز مسابقه</div>
-          <div dir="ltr" className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
+          <div style="direction: ltr" className={`mono text-xl font-black ${team.totalMatchScore >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(team.totalMatchScore)}</div>
         </div>
         <div className="rounded-xl border border-cyan-300/40 bg-cyan-500/10 p-3">
           <div className="text-[11px] text-cyan-100">بازگشت سرمایه بازیکن</div>
@@ -82,7 +82,7 @@ function TeamPosterColumn({ team }) {
             {team.usersROI.length === 0 ? <div>بدون داده</div> : team.usersROI.slice(0, 3).map((u) => (
               <div key={`${team.countryName}-${u.userId}`} className="flex items-center justify-between gap-2">
                 <span className="truncate">{u.userName}</span>
-                <span dir="ltr" className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
+                <span style="direction: ltr" className={`mono ${u.roi >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtSigned(u.roi)}</span>
               </div>
             ))}
           </div>
@@ -175,8 +175,10 @@ export default function SettledMatchPosterDialog({ matchId }) {
         ) : (
           <>
             <div className="rounded-xl border border-white/15 overflow-hidden bg-black/20">
-              <div className="origin-top-left scale-[0.45] w-[1920px] h-[1080px] -mb-[410px] -mr-[205px]">
-                <PosterCanvas ref={posterRef} matchData={matchData} bgImage={bgImage} />
+              <div className="rounded-xl border border-white/15 overflow-hidden bg-black/20 w-full justify-center flex">
+                <div className="origin-top scale-[0.45] w-[1920px] h-[1080px] -mb-[580px]">
+                  <PosterCanvas ref={posterRef} matchData={matchData} bgImage={bgImage} />
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2">
