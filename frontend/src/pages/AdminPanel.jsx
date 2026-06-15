@@ -233,12 +233,12 @@ function SettleDialog({ match, home, away, onClose, onDone }) {
 function SideInputs({ title, prefix, r, setR }) {
   const set = (k, v) => setR({ ...r, [k]: Number(v) || 0 });
   return (
-    <div className="glass rounded-xl p-4 space-y-2">
-      <div className="text-sm font-bold mb-2">{title}</div>
-      <Row label="گل‌ها" v={r[`${prefix}_goals`]} onChange={(v) => set(`${prefix}_goals`, v)} testid={`in-${prefix}-goals`} />
-      <Row label="کارت زرد (هرکدام −۱)" v={r[`${prefix}_yellow`]} onChange={(v) => set(`${prefix}_yellow`, v)} testid={`in-${prefix}-yellow`} />
-      <Row label="کارت قرمز (هرکدام −۲)" v={r[`${prefix}_red`]} onChange={(v) => set(`${prefix}_red`, v)} testid={`in-${prefix}-red`} />
-    </div>
+      <div className="glass rounded-xl p-4 space-y-2">
+        <div className="text-sm font-bold mb-2">{title}</div>
+        <Row label="گل‌ها" v={r[`${prefix}_goals`]} onChange={(v) => set(`${prefix}_goals`, v)} testid={`in-${prefix}-goals`} />
+        <Row label="کارت زرد (هرکدام −۰.۵)" v={r[`${prefix}_yellow`]} onChange={(v) => set(`${prefix}_yellow`, v)} testid={`in-${prefix}-yellow`} />
+        <Row label="کارت قرمز (هرکدام −۱)" v={r[`${prefix}_red`]} onChange={(v) => set(`${prefix}_red`, v)} testid={`in-${prefix}-red`} />
+      </div>
   );
 }
 const Row = ({ label, v, onChange, testid }) => (
@@ -249,43 +249,53 @@ const Row = ({ label, v, onChange, testid }) => (
 );
 
 function PreviewBreakdown({ match, home, away, r }) {
-  // Compute client-side preview so admin sees disbursements before confirming
   const tier_mult = (t) => (t <= 2 ? 1 : t <= 4 ? 1.5 : 2);
   const stageMap = { group: { win: 5, draw: 2 }, r32: { win: 6 }, r16: { win: 7 }, qf: { win: 8 }, sf: { win: 9 }, final: { win: 10 }, third: { win: 5 } };
+
   function side(team, my, other) {
     const arr = [];
     const m = tier_mult(team.tier);
-    const cfg = stageMap[match.stage];
+    const cfg = stageMap[match.stage] || { win: 0, draw: 0 };
+
     if (my > other) arr.push({ label: `برد (${m}×)`, amount: cfg.win * m });
     else if (my === other && match.stage === "group") arr.push({ label: `تساوی (${m}×)`, amount: cfg.draw * m });
-    if (my) arr.push({ label: `${my} گل زده`, amount: my });
+
+    // Applying the multiplier to Goals Scored
+    if (my) arr.push({ label: `${my} گل زده (${m}×)`, amount: my * m });
+    // Multiplier NOT applied to Goals Conceded
     if (other) arr.push({ label: `${other} گل خورده`, amount: -other });
+
     return arr;
   }
+
   const h = side(home, r.home_goals, r.away_goals);
   const a = side(away, r.away_goals, r.home_goals);
+
+  // Adjusted cards calculation
   for (const [pref, list] of [["home", h], ["away", a]]) {
-    if (r[`${pref}_yellow`]) list.push({ label: `${r[`${pref}_yellow`]} زرد`, amount: -r[`${pref}_yellow`] });
-    if (r[`${pref}_red`]) list.push({ label: `${r[`${pref}_red`]} قرمز`, amount: -2 * r[`${pref}_red`] });
+    if (r[`${pref}_yellow`]) list.push({ label: `${r[`${pref}_yellow`]} زرد`, amount: -0.5 * r[`${pref}_yellow`] });
+    if (r[`${pref}_red`]) list.push({ label: `${r[`${pref}_red`]} قرمز`, amount: -1 * r[`${pref}_red`] });
   }
+
   const ht = h.reduce((s, x) => s + x.amount, 0);
   const at = a.reduce((s, x) => s + x.amount, 0);
+
   return (
-    <div className="glass rounded-xl p-4 text-xs">
-      <div className="text-gray-400 mb-2">پیش‌نمایش محاسبه سکه‌ها (پیش از تأیید):</div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <div className="font-bold mb-1">{home.name_fa}</div>
-          {h.map((x) => <div key={x.label} className="flex justify-between"><span>{x.label}</span><span className={`mono ${x.amount >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(x.amount)}</span></div>)}
-          <div className="flex justify-between mt-1 pt-1 border-t border-white/10 font-bold"><span>جمع</span><span className={`mono ${ht >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(ht)}</span></div>
-        </div>
-        <div>
-          <div className="font-bold mb-1">{away.name_fa}</div>
-          {a.map((x) => <div key={x.label} className="flex justify-between"><span>{x.label}</span><span className={`mono ${x.amount >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(x.amount)}</span></div>)}
-          <div className="flex justify-between mt-1 pt-1 border-t border-white/10 font-bold"><span>جمع</span><span className={`mono ${at >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(at)}</span></div>
+      <div className="glass rounded-xl p-4 text-xs">
+        <div className="text-gray-400 mb-2">پیش‌نمایش محاسبه سکه‌ها (پیش از تأیید):</div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <div className="font-bold mb-1">{home.name_fa}</div>
+            {h.map((x) => <div key={x.label} className="flex justify-between"><span>{x.label}</span><span className={`mono ${x.amount >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(x.amount)}</span></div>)}
+            <div className="flex justify-between mt-1 pt-1 border-t border-white/10 font-bold"><span>جمع</span><span className={`mono ${ht >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(ht)}</span></div>
+          </div>
+          <div>
+            <div className="font-bold mb-1">{away.name_fa}</div>
+            {a.map((x) => <div key={x.label} className="flex justify-between"><span>{x.label}</span><span className={`mono ${x.amount >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(x.amount)}</span></div>)}
+            <div className="flex justify-between mt-1 pt-1 border-t border-white/10 font-bold"><span>جمع</span><span className={`mono ${at >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(at)}</span></div>
+          </div>
         </div>
       </div>
-    </div>
   );
 }
 

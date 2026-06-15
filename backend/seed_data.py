@@ -91,8 +91,8 @@ MATCH_BASE_COINS = {
 PERFORMANCE = {
     "goal_scored": 1,
     "goal_conceded": -1,
-    "yellow_card": -1,
-    "red_card": -2,
+    "yellow_card": -0.5,
+    "red_card": -1,
 }
 
 # Special bonuses (no multiplier)

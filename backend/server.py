@@ -578,17 +578,12 @@ def _stage_win_key(stage: str) -> Optional[str]:
 
 
 def _compute_settlement(match: dict, home: dict, away: dict, r: dict) -> dict:
-    """Compute coin deltas for home and away owners (and any events) from result `r`.
-
-    `r` keys: home_goals, away_goals, home_yellow, home_second_yellow, home_red,
-    away_yellow, away_second_yellow, away_red.
-    """
+    """Compute coin deltas for home and away owners (and any events) from result `r`."""
     stage = match["stage"]
     home_owner = home.get("current_owner_id")
     away_owner = away.get("current_owner_id")
 
     def base_outcome(side_goals: int, other_goals: int, tier: int, is_home: bool):
-        # returns (amount, reason_label)
         m = tier_multiplier(tier)
         if stage == "group":
             if side_goals > other_goals:
@@ -596,7 +591,6 @@ def _compute_settlement(match: dict, home: dict, away: dict, r: dict) -> dict:
             if side_goals == other_goals:
                 return MATCH_BASE_COINS["group_draw"] * m, "تساوی گروهی"
             return 0, "باخت گروهی"
-        # knockout: only wins pay
         if side_goals > other_goals:
             key = _stage_win_key(stage)
             return MATCH_BASE_COINS[key] * m, f"برد {stage}"
@@ -610,17 +604,20 @@ def _compute_settlement(match: dict, home: dict, away: dict, r: dict) -> dict:
     breakdown["home"].append({"amount": h_amt, "label": h_lbl})
     breakdown["away"].append({"amount": a_amt, "label": a_lbl})
 
-    # Goals
+    m_home = tier_multiplier(home["tier"])
+    m_away = tier_multiplier(away["tier"])
+
+    # Goals (Multiplier applied to Goals Scored only)
     if r["home_goals"]:
-        breakdown["home"].append({"amount": PERFORMANCE["goal_scored"] * r["home_goals"], "label": f"{r['home_goals']} گل زده"})
+        breakdown["home"].append({"amount": PERFORMANCE["goal_scored"] * r["home_goals"] * m_home, "label": f"{r['home_goals']} گل زده"})
     if r["away_goals"]:
         breakdown["home"].append({"amount": PERFORMANCE["goal_conceded"] * r["away_goals"], "label": f"{r['away_goals']} گل خورده"})
     if r["away_goals"]:
-        breakdown["away"].append({"amount": PERFORMANCE["goal_scored"] * r["away_goals"], "label": f"{r['away_goals']} گل زده"})
+        breakdown["away"].append({"amount": PERFORMANCE["goal_scored"] * r["away_goals"] * m_away, "label": f"{r['away_goals']} گل زده"})
     if r["home_goals"]:
         breakdown["away"].append({"amount": PERFORMANCE["goal_conceded"] * r["home_goals"], "label": f"{r['home_goals']} گل خورده"})
 
-    # Cards (simplified: yellow=-1, red=-2, no second-yellow distinction)
+    # Cards (Using the dynamically updated PERFORMANCE dictionary)
     for side, prefix in (("home", "home_"), ("away", "away_")):
         yc = r.get(f"{prefix}yellow", 0)
         rc = r.get(f"{prefix}red", 0)
@@ -639,7 +636,6 @@ def _compute_settlement(match: dict, home: dict, away: dict, r: dict) -> dict:
         "away_total": away_total,
         "breakdown": breakdown,
     }
-
 
 @api.get("/admin/matches/{match_id}/preview")
 async def preview_settle(match_id: str, admin: dict = Depends(require_admin)):
@@ -698,8 +694,9 @@ def _poster_fantasy_stats(stage: str, team_tier: int, my_goals: int, other_goals
         base = MATCH_BASE_COINS["group_draw"]
         rows.append({"title": "تساوی بازی", "baseValue": base, "multiplier": mult, "finalScore": base * mult})
 
+    # Apply mult for scored goals, but NOT for conceded.
     if my_goals:
-        rows.append({"title": "گل زده", "baseValue": my_goals, "multiplier": 1, "finalScore": my_goals})
+        rows.append({"title": "گل زده", "baseValue": my_goals, "multiplier": mult, "finalScore": my_goals * mult})
     if other_goals:
         rows.append({"title": "گل خورده", "baseValue": other_goals, "multiplier": PERFORMANCE["goal_conceded"], "finalScore": PERFORMANCE["goal_conceded"] * other_goals})
     if yellow:
@@ -1355,40 +1352,54 @@ async def _sync_knockout_bracket_slots() -> Dict[str, int]:
 
 
 def _cards_from_api(api_match: dict, side: str) -> dict:
-    """Extract yellow/red card counts for `side` ∈ {'home','away'} from the stats array,
-    falling back to scanning the `cards` array."""
     yellow = 0
     red = 0
+    # 1) Try extracting from the statistics array
     for st in api_match.get("statistics") or []:
+        if not isinstance(st, dict): continue
         t = (st.get("type") or "").lower()
         try:
             v = int(st.get(side, "0") or 0)
         except (TypeError, ValueError):
             v = 0
-        if t == "yellow cards":
+        if "yellow" in t:
             yellow = max(yellow, v)
-        elif t == "red cards":
+        elif "red" in t:
             red = max(red, v)
-    if yellow == 0 and red == 0:
-        # Fallback to event list
-        for card in api_match.get("cards") or []:
-            faulter = card.get(f"{'home' if side == 'home' else 'away'}_fault") or ""
-            card_kind = (card.get("card") or "").lower()
-            if not faulter:
-                continue
-            if "red" in card_kind:
-                red += 1
-            elif "yellow" in card_kind:
-                yellow += 1
-    return {"yellow": yellow, "red": red}
 
+    # 2) Fallback to mapping the detailed cards array
+    c_yellow = 0
+    c_red = 0
+    for card in api_match.get("cards") or []:
+        if not isinstance(card, dict): continue
+        # Identify the correct team side
+        faulter = card.get(f"{'home' if side == 'home' else 'away'}_fault")
+        if not faulter:
+            faulter = card.get(f"{'home' if side == 'home' else 'away'}_player_id")
+
+        card_kind = (card.get("card") or "").lower()
+        if not faulter:
+            continue
+        if "red" in card_kind:
+            c_red += 1
+        elif "yellow" in card_kind:
+            c_yellow += 1
+
+    # Pick the maximum to guarantee accurate numbers
+    return {"yellow": max(yellow, c_yellow), "red": max(red, c_red)}
 
 def _goals_from_api(api_match: dict):
     def _to_int(v):
         try: return int(v) if v not in (None, "") else 0
         except (TypeError, ValueError): return 0
-    return _to_int(api_match.get("match_hometeam_score")), _to_int(api_match.get("match_awayteam_score"))
 
+    hg = api_match.get("match_hometeam_ft_score")
+    if hg in (None, ""): hg = api_match.get("match_hometeam_score")
+
+    ag = api_match.get("match_awayteam_ft_score")
+    if ag in (None, ""): ag = api_match.get("match_awayteam_score")
+
+    return _to_int(hg), _to_int(ag)
 
 async def _apifootball_get_events() -> List[dict]:
     """Call the single endpoint we use, with hardcoded league + date window from env."""
