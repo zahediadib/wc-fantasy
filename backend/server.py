@@ -1401,6 +1401,29 @@ def _goals_from_api(api_match: dict):
 
     return _to_int(hg), _to_int(ag)
 
+# async def _apifootball_get_events() -> List[dict]:
+#     """Call the single endpoint we use, with hardcoded league + date window from env."""
+#     key = os.environ["APIFOOTBALL_KEY"]
+#     league_id = os.environ.get("APIFOOTBALL_LEAGUE_ID", "28")
+#     date_from = os.environ.get("APIFOOTBALL_FROM", "2026-06-10")
+#     date_to = os.environ.get("APIFOOTBALL_TO", "2026-07-20")
+#     url = "https://apiv3.apifootball.com/"
+#     params = {
+#         "action": "get_events", "from": date_from, "to": date_to,
+#         "league_id": league_id, "APIkey": key,
+#     }
+#     async with httpx.AsyncClient(timeout=20.0) as c:
+#         resp = await c.get(url, params=params)
+#         if resp.status_code != 200:
+#             raise HTTPException(status_code=502, detail=f"apifootball خطا: {resp.status_code}")
+#         data = resp.json()
+#         # The API returns a JSON array on success, or an object with `error` on failure
+#         if isinstance(data, dict) and data.get("error"):
+#             raise HTTPException(status_code=502, detail=f"apifootball: {data.get('message', 'error')}")
+#         if not isinstance(data, list):
+#             raise HTTPException(status_code=502, detail="پاسخ apifootball در قالب آرایه نیست")
+#         return data
+
 async def _apifootball_get_events() -> List[dict]:
     """Call the single endpoint we use, with hardcoded league + date window from env."""
     key = os.environ["APIFOOTBALL_KEY"]
@@ -1412,12 +1435,15 @@ async def _apifootball_get_events() -> List[dict]:
         "action": "get_events", "from": date_from, "to": date_to,
         "league_id": league_id, "APIkey": key,
     }
-    async with httpx.AsyncClient(timeout=20.0) as c:
+    
+    # تعریف پروکسی SOCKS5 برای کلاینت
+    proxy_url = "socks5://127.0.0.1:10808"
+    
+    async with httpx.AsyncClient(proxy=proxy_url, timeout=20.0) as c:
         resp = await c.get(url, params=params)
         if resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"apifootball خطا: {resp.status_code}")
         data = resp.json()
-        # The API returns a JSON array on success, or an object with `error` on failure
         if isinstance(data, dict) and data.get("error"):
             raise HTTPException(status_code=502, detail=f"apifootball: {data.get('message', 'error')}")
         if not isinstance(data, list):
