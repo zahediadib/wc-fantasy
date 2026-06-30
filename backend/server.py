@@ -185,6 +185,11 @@ class MatchSettleConfirmIn(BaseModel):
     home_red: int = 0
     away_yellow: int = 0
     away_red: int = 0
+    # برای بازی‌هایی که پس از تساوی به پنالتی می‌روند.
+    # مقدار: "home" یا "away". در بازی‌های گروهی یا حذفی با برنده مشخص باید None باشد.
+    penalty_winner: Optional[str] = None
+    home_pen_goals: Optional[int] = None  # تعداد گل‌های پنالتی میزبان (اطلاعاتی)
+    away_pen_goals: Optional[int] = None  # تعداد گل‌های پنالتی مهمان (اطلاعاتی)
 
 
 class MatchCreateIn(BaseModel):
@@ -578,12 +583,20 @@ def _stage_win_key(stage: str) -> Optional[str]:
 
 
 def _compute_settlement(match: dict, home: dict, away: dict, r: dict) -> dict:
-    """Compute coin deltas for home and away owners (and any events) from result `r`."""
+    """Compute coin deltas for home and away owners (and any events) from result `r`.
+
+    فیلد `r` می‌تواند شامل موارد زیر باشد:
+    - home_goals, away_goals: گل‌های ۹۰ (یا ۱۲۰) دقیقه
+    - penalty_winner: "home" | "away" | None — برنده ضربات پنالتی
+    - home_pen_goals, away_pen_goals: تعداد گل‌های پنالتی (فقط اطلاعاتی، بر سکه تأثیر ندارد)
+    """
     stage = match["stage"]
     home_owner = home.get("current_owner_id")
     away_owner = away.get("current_owner_id")
 
-    def base_outcome(side_goals: int, other_goals: int, tier: int, is_home: bool):
+    penalty_winner = r.get("penalty_winner")  # "home" | "away" | None
+
+    def base_outcome(side_goals: int, other_goals: int, tier: int, my_side: str):
         m = tier_multiplier(tier)
         if stage == "group":
             if side_goals > other_goals:
@@ -591,16 +604,21 @@ def _compute_settlement(match: dict, home: dict, away: dict, r: dict) -> dict:
             if side_goals == other_goals:
                 return MATCH_BASE_COINS["group_draw"] * m, "تساوی گروهی"
             return 0, "باخت گروهی"
+        # مرحله حذفی
         if side_goals > other_goals:
             key = _stage_win_key(stage)
             return MATCH_BASE_COINS[key] * m, f"برد {stage}"
+        if side_goals == other_goals and penalty_winner == my_side:
+            # برنده پنالتی همان سکه برد معمولی را می‌گیرد
+            key = _stage_win_key(stage)
+            return MATCH_BASE_COINS[key] * m, f"برد پنالتی {stage}"
         return 0, "حذف"
 
     breakdown = {"home": [], "away": []}
 
     # Outcome
-    h_amt, h_lbl = base_outcome(r["home_goals"], r["away_goals"], home["tier"], True)
-    a_amt, a_lbl = base_outcome(r["away_goals"], r["home_goals"], away["tier"], False)
+    h_amt, h_lbl = base_outcome(r["home_goals"], r["away_goals"], home["tier"], "home")
+    a_amt, a_lbl = base_outcome(r["away_goals"], r["home_goals"], away["tier"], "away")
     breakdown["home"].append({"amount": h_amt, "label": h_lbl})
     breakdown["away"].append({"amount": a_amt, "label": a_lbl})
 
@@ -654,10 +672,15 @@ async def preview_settle(match_id: str, admin: dict = Depends(require_admin)):
         h_goals, a_goals = _goals_from_api(api_data)
         h_cards = _cards_from_api(api_data, "home")
         a_cards = _cards_from_api(api_data, "away")
+        pen_info = _penalty_info_from_api(api_data)
         fetched = {
             "home_goals": h_goals, "away_goals": a_goals,
             "home_yellow": h_cards["yellow"], "home_red": h_cards["red"],
             "away_yellow": a_cards["yellow"], "away_red": a_cards["red"],
+            "penalty_winner": pen_info["penalty_winner"],
+            "home_pen_goals": pen_info["home_pen_goals"],
+            "away_pen_goals": pen_info["away_pen_goals"],
+            "went_to_penalties": pen_info["went_to_penalties"],
             "source": "apifootball.com",
             "api_status": m.get("api_status"),
         }
@@ -666,6 +689,10 @@ async def preview_settle(match_id: str, admin: dict = Depends(require_admin)):
             "home_goals": 0, "away_goals": 0,
             "home_yellow": 0, "home_red": 0,
             "away_yellow": 0, "away_red": 0,
+            "penalty_winner": None,
+            "home_pen_goals": None,
+            "away_pen_goals": None,
+            "went_to_penalties": False,
             "source": "manual", "api_status": None,
         }
 
@@ -682,7 +709,7 @@ async def preview_settle(match_id: str, admin: dict = Depends(require_admin)):
     }
 
 
-def _poster_fantasy_stats(stage: str, team_tier: int, my_goals: int, other_goals: int, yellow: int, red: int) -> List[dict]:
+def _poster_fantasy_stats(stage: str, team_tier: int, my_goals: int, other_goals: int, yellow: int, red: int, penalty_winner: Optional[str] = None, my_side: Optional[str] = None) -> List[dict]:
     rows: List[dict] = []
     mult = tier_multiplier(team_tier)
     if my_goals > other_goals:
@@ -693,6 +720,12 @@ def _poster_fantasy_stats(stage: str, team_tier: int, my_goals: int, other_goals
     elif stage == "group" and my_goals == other_goals:
         base = MATCH_BASE_COINS["group_draw"]
         rows.append({"title": "تساوی بازی", "baseValue": base, "multiplier": mult, "finalScore": base * mult})
+    elif stage != "group" and my_goals == other_goals and penalty_winner and penalty_winner == my_side:
+        # برنده پنالتی — همان سکه برد معمولی
+        key = _stage_win_key(stage)
+        if key:
+            base = MATCH_BASE_COINS[key]
+            rows.append({"title": "برد پنالتی", "baseValue": base, "multiplier": mult, "finalScore": base * mult})
 
     # Apply mult for scored goals, but NOT for conceded.
     if my_goals:
@@ -776,21 +809,38 @@ async def settled_match_poster_data(match_id: str, admin: dict = Depends(require
     home_stats = _poster_fantasy_stats(
         m["stage"], int(home["tier"]), int(r.get("home_goals", 0)), int(r.get("away_goals", 0)),
         int(r.get("home_yellow", 0)), int(r.get("home_red", 0)),
+        penalty_winner=r.get("penalty_winner"), my_side="home",
     )
     away_stats = _poster_fantasy_stats(
         m["stage"], int(away["tier"]), int(r.get("away_goals", 0)), int(r.get("home_goals", 0)),
         int(r.get("away_yellow", 0)), int(r.get("away_red", 0)),
+        penalty_winner=r.get("penalty_winner"), my_side="away",
     )
 
     home_total = float(sum(x["finalScore"] for x in home_stats))
     away_total = float(sum(x["finalScore"] for x in away_stats))
+
+    # نمایش نتیجه: اگر پنالتی بوده، اضافه کردن نتیجه ضربات
+    base_score = f"{r.get('home_goals', 0)} - {r.get('away_goals', 0)}"
+    if r.get("penalty_winner"):
+        h_pen = r.get("home_pen_goals", "")
+        a_pen = r.get("away_pen_goals", "")
+        if h_pen is not None and a_pen is not None:
+            pen_score = f"({h_pen} - {a_pen} pen.)"
+        else:
+            pen_score = "(pen.)"
+        final_score_display = f"{base_score} {pen_score}"
+    else:
+        final_score_display = base_score
 
     return {
         "match": {
             "status": "تسویه شده",
             "date": (m.get("kickoff") or "")[:10],
             "tournamentStage": STAGE_LABELS_FA.get(m["stage"], m["stage"]),
-            "finalScore": f"{r.get('home_goals', 0)} - {r.get('away_goals', 0)}",
+            "finalScore": final_score_display,
+            "wentToPenalties": bool(r.get("penalty_winner")),
+            "penaltyWinner": r.get("penalty_winner"),
         },
         "teams": [
             {
@@ -828,6 +878,26 @@ async def settle_match(body: MatchSettleConfirmIn, admin: dict = Depends(require
     away = await db.teams.find_one({"id": m["away_team_id"]})
 
     r = body.model_dump(exclude={"match_id"})
+
+    # --- اعتبارسنجی penalty_winner ---
+    is_knockout = m["stage"] != "group"
+    goals_are_equal = r["home_goals"] == r["away_goals"]
+
+    if is_knockout and goals_are_equal:
+        # در مرحله حذفی با تساوی، penalty_winner الزامی است
+        if r.get("penalty_winner") not in ("home", "away"):
+            raise HTTPException(
+                status_code=400,
+                detail="در بازی‌های حذفی که با تساوی تمام می‌شوند، باید برنده پنالتی (home یا away) مشخص شود."
+            )
+    else:
+        # در بازی‌های گروهی یا حذفی با برنده مشخص، penalty_winner نباید تنظیم شده باشد
+        if r.get("penalty_winner") is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="penalty_winner فقط برای بازی‌های حذفی که با تساوی تمام می‌شوند معتبر است."
+            )
+
     sim = _compute_settlement(m, home, away, r)
 
     settlement_id = gen_id()
@@ -881,9 +951,20 @@ async def settle_match(body: MatchSettleConfirmIn, admin: dict = Depends(require
     await db.teams.update_one({"id": away["id"]}, update_team_stats(away, "away", r, None))
 
     # Knockout eliminations
-    if m["stage"] != "group" and r["home_goals"] != r["away_goals"]:
-        loser_id = home["id"] if r["home_goals"] < r["away_goals"] else away["id"]
-        await db.teams.update_one({"id": loser_id}, {"$set": {"alive": False}})
+    if m["stage"] != "group":
+        penalty_winner = r.get("penalty_winner")  # "home" | "away" | None
+        if r["home_goals"] != r["away_goals"]:
+            # برنده از روی گل مشخص است
+            loser_id = home["id"] if r["home_goals"] < r["away_goals"] else away["id"]
+            await db.teams.update_one({"id": loser_id}, {"$set": {"alive": False}})
+        elif penalty_winner == "home":
+            # میزبان برنده پنالتی — مهمان حذف می‌شود
+            await db.teams.update_one({"id": away["id"]}, {"$set": {"alive": False}})
+        elif penalty_winner == "away":
+            # مهمان برنده پنالتی — میزبان حذف می‌شود
+            await db.teams.update_one({"id": home["id"]}, {"$set": {"alive": False}})
+        # اگر penalty_winner هیچ‌کدام نبود (نباید پیش بیاید چون اعتبارسنجی بالا آن را رد کرده)
+        # هیچ‌کدام alive نمی‌شوند — محافظ امنیتی
 
     # Update match
     await db.matches.update_one({"id": m["id"]}, {"$set": {
@@ -937,8 +1018,11 @@ async def rollback_match(match_id: str, admin: dict = Depends(require_admin)):
     await db.teams.update_one({"id": home["id"]}, reverse_stats("home", r))
     await db.teams.update_one({"id": away["id"]}, reverse_stats("away", r))
     # Re-enable alive on both (since elimination was due to this match)
-    if m["stage"] != "group" and r["home_goals"] != r["away_goals"]:
-        await db.teams.update_many({"id": {"$in": [home["id"], away["id"]]}}, {"$set": {"alive": True}})
+    if m["stage"] != "group":
+        penalty_winner = r.get("penalty_winner")
+        if r["home_goals"] != r["away_goals"] or penalty_winner in ("home", "away"):
+            # هر دو تیم را زنده می‌کنیم — بازگردانی کامل
+            await db.teams.update_many({"id": {"$in": [home["id"], away["id"]]}}, {"$set": {"alive": True}})
 
     await db.matches.update_one({"id": match_id}, {"$set": {
         "status": "scheduled", "result": None, "ledger_ids": [], "settlement_id": None,
@@ -1401,6 +1485,48 @@ def _goals_from_api(api_match: dict):
 
     return _to_int(hg), _to_int(ag)
 
+
+def _penalty_info_from_api(api_match: dict) -> dict:
+    """استخراج اطلاعات پنالتی از پاسخ apifootball.
+
+    - match_status == "After Pen." نشان می‌دهد بازی به ضربات پنالتی رفته است.
+    - match_hometeam_penalty_score و match_awayteam_penalty_score تعداد گل‌های پنالتی را دارند.
+    - برنده را از مقایسه این دو عدد تشخیص می‌دهیم.
+
+    بازگشت:
+        {
+            "went_to_penalties": bool,
+            "penalty_winner": "home" | "away" | None,
+            "home_pen_goals": int,
+            "away_pen_goals": int,
+        }
+    """
+    def _to_int(v):
+        try: return int(v) if v not in (None, "") else 0
+        except (TypeError, ValueError): return 0
+
+    api_status = (api_match.get("match_status") or "").strip().lower()
+    # apifootball از "After Pen." یا "Pen." استفاده می‌کند
+    went_to_penalties = "pen" in api_status
+
+    h_pen = _to_int(api_match.get("match_hometeam_penalty_score"))
+    a_pen = _to_int(api_match.get("match_awayteam_penalty_score"))
+
+    penalty_winner: Optional[str] = None
+    if went_to_penalties:
+        if h_pen > a_pen:
+            penalty_winner = "home"
+        elif a_pen > h_pen:
+            penalty_winner = "away"
+        # اگر برابر بودند (وضعیت غیرعادی) winner را None می‌گذاریم
+
+    return {
+        "went_to_penalties": went_to_penalties,
+        "penalty_winner": penalty_winner,
+        "home_pen_goals": h_pen,
+        "away_pen_goals": a_pen,
+    }
+
 # async def _apifootball_get_events() -> List[dict]:
 #     """Call the single endpoint we use, with hardcoded league + date window from env."""
 #     key = os.environ["APIFOOTBALL_KEY"]
@@ -1435,10 +1561,10 @@ async def _apifootball_get_events() -> List[dict]:
         "action": "get_events", "from": date_from, "to": date_to,
         "league_id": league_id, "APIkey": key,
     }
-    
+
     # تعریف پروکسی SOCKS5 برای کلاینت
     proxy_url = "socks5://127.0.0.1:10808"
-    
+
     async with httpx.AsyncClient(proxy=proxy_url, timeout=20.0) as c:
         resp = await c.get(url, params=params)
         if resp.status_code != 200:
@@ -1487,7 +1613,8 @@ async def admin_fetch_matches(admin: dict = Depends(require_admin)):
         round_slot = _extract_round_slot(ev.get("stage_name", ""), ev.get("match_round", ""))
         kickoff_str = f"{ev.get('match_date', '')}T{ev.get('match_time') or '00:00'}:00+00:00"
         api_status = (ev.get("match_status") or "").strip()
-        is_finished = api_status.lower() == "finished"
+        # بازی‌هایی که "Finished" یا "After Pen." هستند تمام شده‌اند
+        is_finished = api_status.lower() in ("finished", "after pen.")
 
         existing = await db.matches.find_one({"external_id": ext_id})
         if existing:

@@ -107,18 +107,18 @@ function TeamPosterColumn({team}) {
                 )}
                 {team.usersROI?.length > 0 && (
                     <div className="rounded-xl border border-cyan-300/40 bg-cyan-500/10 p-3">
-                    <div className="text-[13px] text-cyan-100">موجودی سکه بازیکن</div>
-                    <div className="text-2xl text-cyan-50 mt-1 space-y-1 max-h-24 overflow-hidden">
-                        {team.balanceAfter.slice(0, 3).map((u) => (
-                            <div key={`${team.countryName}-${u.userId}`}
-                                 className="flex items-center justify-between gap-2">
-                                <span className="font-black truncate">{u.userName}</span>
-                                <span style={{direction: "ltr"}}
-                                      className={`font-black mono ${u.balanceAfter >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtCoins(u.balanceAfter)}</span>
-                            </div>
-                        ))}
+                        <div className="text-[13px] text-cyan-100">موجودی سکه بازیکن</div>
+                        <div className="text-2xl text-cyan-50 mt-1 space-y-1 max-h-24 overflow-hidden">
+                            {team.balanceAfter.slice(0, 3).map((u) => (
+                                <div key={`${team.countryName}-${u.userId}`}
+                                     className="flex items-center justify-between gap-2">
+                                    <span className="font-black truncate">{u.userName}</span>
+                                    <span style={{direction: "ltr"}}
+                                          className={`font-black mono ${u.balanceAfter >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{fmtCoins(u.balanceAfter)}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                </div>
                 )}
             </div>
         </div>
@@ -260,8 +260,12 @@ const PosterCanvas = React.forwardRef(function PosterCanvas({matchData, bgImage}
                         <span>•</span>
                         <span>{matchData.match.date}</span>
                     </div>
-                    <div
-                        className="mt-4 text-6xl font-black text-emerald-200 tracking-wide">{matchData.match.finalScore}</div>
+                    <div className="mt-4 text-6xl font-black text-emerald-200 tracking-wide">{matchData.match.finalScore}</div>
+                    {matchData.match.wentToPenalties && (
+                        <div className="mt-2 text-lg text-amber-200 font-bold tracking-wide">
+                            ⚡ تمدید و ضربات پنالتی
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-8 grid grid-cols-2 gap-5 flex-1">
