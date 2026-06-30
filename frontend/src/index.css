@@ -89,7 +89,7 @@ input {
 .glow-purple { box-shadow: 0 0 28px rgba(157, 76, 221, 0.35), inset 0 0 0 1px rgba(157, 76, 221, 0.4); }
 .glow-green { box-shadow: 0 0 18px rgba(0, 255, 65, 0.25), inset 0 0 0 1px rgba(0, 255, 65, 0.3); }
 
-.text-pos { color: var(--bright-green); direction: ltr; }
+.text-pos { color: var(--bright-green); direction: rtl; }
 .text-neg { color: var(--magenta); direction: ltr;}
 
 .divider {
@@ -117,3 +117,8 @@ input {
 
 /* Number ticker style */
 .tabular { font-variant-numeric: tabular-nums; }
+
+.penScore {
+    font-size: 2.25rem;
+    vertical-align: middle;
+}

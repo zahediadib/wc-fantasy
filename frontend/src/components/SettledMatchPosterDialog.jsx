@@ -261,11 +261,6 @@ const PosterCanvas = React.forwardRef(function PosterCanvas({matchData, bgImage}
                         <span>{matchData.match.date}</span>
                     </div>
                     <div className="mt-4 text-6xl font-black text-emerald-200 tracking-wide">{matchData.match.finalScore}</div>
-                    {matchData.match.wentToPenalties && (
-                        <div className="mt-2 text-lg text-amber-200 font-bold tracking-wide">
-                            ⚡ تمدید و ضربات پنالتی
-                        </div>
-                    )}
                 </div>
 
                 <div className="mt-8 grid grid-cols-2 gap-5 flex-1">

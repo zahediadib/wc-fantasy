@@ -821,17 +821,16 @@ async def settled_match_poster_data(match_id: str, admin: dict = Depends(require
     away_total = float(sum(x["finalScore"] for x in away_stats))
 
     # نمایش نتیجه: اگر پنالتی بوده، اضافه کردن نتیجه ضربات
-    base_score = f"{r.get('home_goals', 0)} - {r.get('away_goals', 0)}"
     if r.get("penalty_winner"):
         h_pen = r.get("home_pen_goals", "")
         a_pen = r.get("away_pen_goals", "")
         if h_pen is not None and a_pen is not None:
-            pen_score = f"({h_pen} - {a_pen} pen.)"
+            pen_score = f"( -  pen.)"
+            final_score_display = f"{r.get('home_goals', 0)} <span class='penScore'>({h_pen})</span> - <span class='penScore'>({a_pen})</span> {r.get('away_goals', 0)}"
         else:
-            pen_score = "(pen.)"
-        final_score_display = f"{base_score} {pen_score}"
+            final_score_display = f"{r.get('home_goals', 0)} - {r.get('away_goals', 0)}"
     else:
-        final_score_display = base_score
+        final_score_display = f"{r.get('home_goals', 0)} - {r.get('away_goals', 0)}"
 
     return {
         "match": {
