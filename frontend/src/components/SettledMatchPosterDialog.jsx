@@ -260,7 +260,7 @@ const PosterCanvas = React.forwardRef(function PosterCanvas({matchData, bgImage}
                         <span>•</span>
                         <span>{matchData.match.date}</span>
                     </div>
-                    <div className="mt-4 text-6xl font-black text-emerald-200 tracking-wide" dangerouslySetInnerHTML={{ __html: matchData.match.finalScore }}>
+                    <div className="mt-4 text-6xl font-black text-emerald-200 tracking-wide" dangerouslySetInnerHTML={{ __html: matchData.match.finalScore }}></div>
                 </div>
 
                 <div className="mt-8 grid grid-cols-2 gap-5 flex-1">
