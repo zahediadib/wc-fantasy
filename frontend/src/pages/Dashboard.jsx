@@ -213,7 +213,7 @@ export default function Dashboard() {
             {ledger.length === 0 && <div className="text-sm text-gray-500 text-center py-8">هنوز رویدادی ثبت نشده است</div>}
             {ledger.map((e) => (
               <div key={e.id} className="flex items-center gap-3 p-2 rounded-lg bg-black/20 slide-in" data-testid={`ledger-row-${e.id}`}>
-                <span className={`mono text-base font-bold w-16 text-left ${e.amount >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(e.amount)}</span>
+                <span style={{direction: "ltr"}} className={`mono text-base font-bold w-16 text-left ${e.amount >= 0 ? "text-pos" : "text-neg"}`}>{fmtSigned(e.amount)}</span>
                 <img src={avatarUrl(e.username)} alt="" className="w-7 h-7 rounded bg-white/5" />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold truncate">{e.user_name_fa}</div>
